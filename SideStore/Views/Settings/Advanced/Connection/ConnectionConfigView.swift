@@ -332,8 +332,8 @@ struct ConnectionConfigView: View {
                             proxy.wrappedValue = String(digits.prefix(5).filter { "0123456789".contains($0) })
                         }
                     } else {
-                        proxy.wrappedValue = newValue.filter { "0123456789.".contains($0) }
-                    }
+    				proxy.wrappedValue = newValue
+			}
                 }
         }
     }
