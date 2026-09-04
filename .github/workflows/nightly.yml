@@ -116,6 +116,8 @@ jobs:
       - name: Install Swift 6.4.x toolchain
         if: steps.build_gate.outputs.should_skip != 'true'
         run: |
+          set -euxo pipefail
+
           echo "=== Installing Swiftly ==="
 
           curl -O https://download.swift.org/swiftly/darwin/swiftly.pkg
@@ -137,19 +139,38 @@ jobs:
       - name: Verify Swift 6.4.x toolchain
         if: steps.build_gate.outputs.should_skip != 'true'
         run: |
+          set -euxo pipefail
+
           source "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
 
           echo "=== Swiftly installed toolchains ==="
           swiftly list
 
-          echo "=== Default Swift ==="
+          echo
+          echo "=== Swift executable ==="
+          which swift
           swift --version
 
-          echo "=== Swift toolchains ==="
-          ls -la ~/Library/Developer/Toolchains/
+          echo
+          echo "=== SwiftPM ==="
+          swift package --version
 
-          echo "=== Swift 6.4.x toolchain through xcrun ==="
-          xcrun --toolchain swift swift --version
+          echo
+          echo "=== Swiftly toolchain directory ==="
+          find "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}" \
+            -maxdepth 5 \
+            -type f \
+            -name swift \
+            -print 2>/dev/null || true
+
+          echo
+          echo "=== Xcode toolchains ==="
+          ls -la ~/Library/Developer/Toolchains/ || true
+
+          echo
+          echo "=== Xcode clang ==="
+          xcrun --find clang
+          xcrun clang --version
 
       - name: Clear SwiftPM Cache
         if: steps.build_gate.outputs.should_skip != 'true'
@@ -191,16 +212,23 @@ jobs:
           echo "=== SwiftPM version ==="
           swift package --version
 
+          echo "=== Swift executable ==="
+          which swift
+
           echo "=== Removing all SwiftPM state ==="
           rm -rf "$RUNNER_TEMP/SourcePackages"
           rm -rf "$RUNNER_TEMP/SourcePackages-Checkouts"
           rm -rf ~/Library/Caches/org.swift.swiftpm
           rm -rf ~/Library/Developer/Xcode/DerivedData
 
-          echo "=== Resolving Swift packages with Swift 6.4.x toolchain ==="
+          mkdir -p "$RUNNER_TEMP/SourcePackages"
+
+          echo "=== Swiftly toolchains ==="
+          swiftly list
+
+          echo "=== Resolving Swift packages ==="
 
           xcodebuild \
-            -toolchain swift \
             -resolvePackageDependencies \
             -project AltStore.xcodeproj \
             -scheme SideStore \
