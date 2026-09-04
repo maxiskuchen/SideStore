@@ -124,6 +124,12 @@ jobs:
           mkdir -p build/logs
           python3 scripts/ci/workflow.py boot-sim-async "iPhone 17 Pro"
 
+      - name: Clean Swift Package Cache
+        if: steps.build_gate.outputs.should_skip != 'true'
+        run: |
+          rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
+          rm -rf ~/Library/Developer/Xcode/DerivedData
+
       - name: Build
         if: steps.build_gate.outputs.should_skip != 'true'
         id: build
