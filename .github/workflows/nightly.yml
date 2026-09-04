@@ -122,7 +122,7 @@ jobs:
           rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
           rm -rf ~/Library/Developer/Xcode/DerivedData
 
-      - name: Build
+       - name: Build
         if: steps.build_gate.outputs.should_skip != 'true'
         id: build
         env:
@@ -130,17 +130,30 @@ jobs:
         run: |
           set -o pipefail
 
-          export HOME="$RUNNER_TEMP/isolated-home"
+          echo "=== Xcode version ==="
+          xcodebuild -version
 
-          mkdir -p "$HOME/Library/Caches"
-          mkdir -p "$HOME/Library/Developer"
+          echo "=== Resolving Swift packages ==="
+          xcodebuild \
+            -resolvePackageDependencies \
+            -project AltStore.xcodeproj \
+            -scheme SideStore \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/SourcePackages" \
+            IDEPackageSupportUseBuiltinSCM=YES \
+            2>&1 | tee package-resolution.log
 
-          echo "Using isolated HOME: $HOME"
+          STATUS=${PIPESTATUS[0]}
+          if [ "$STATUS" -ne 0 ]; then
+            echo "Swift package resolution failed"
+            exit "$STATUS"
+          fi
+
+          echo "=== Building SideStore ==="
 
           make -B build 2>&1 | tee build-raw.log
           STATUS=${PIPESTATUS[0]}
 
-          exit $STATUS
+          exit "$STATUS"
 
       - name: Tests Build
         if: >
