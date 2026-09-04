@@ -122,7 +122,7 @@ jobs:
           rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
           rm -rf ~/Library/Developer/Xcode/DerivedData
 
-       - name: Build
+            - name: Build
         if: steps.build_gate.outputs.should_skip != 'true'
         id: build
         env:
