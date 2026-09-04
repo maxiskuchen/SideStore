@@ -2,7 +2,8 @@ name: Nightly SideStore Build
 
 on:
   push:
-    branches: [develop]
+    branches:
+      - develop
     paths-ignore:
       - '**.md'
       - 'LICENSE'
@@ -123,8 +124,8 @@ jobs:
           rm -rf ~/Library/Developer/Xcode/DerivedData
 
       - name: Build
-        if: steps.build_gate.outputs.should_skip != 'true'
         id: build
+        if: steps.build_gate.outputs.should_skip != 'true'
         env:
           BUILD_LOG_ZIP_PASSWORD: ${{ secrets.BUILD_LOG_ZIP_PASSWORD }}
         run: |
@@ -143,6 +144,7 @@ jobs:
             2>&1 | tee package-resolution.log
 
           STATUS=${PIPESTATUS[0]}
+
           if [ "$STATUS" -ne 0 ]; then
             echo "Swift package resolution failed"
             exit "$STATUS"
@@ -156,11 +158,11 @@ jobs:
           exit "$STATUS"
 
       - name: Tests Build
+        id: test-build
         if: >
           steps.build_gate.outputs.should_skip != 'true' &&
           vars.ENABLE_TESTS == '1' &&
           vars.ENABLE_TESTS_BUILD == '1'
-        id: test-build
         env:
           BUILD_LOG_ZIP_PASSWORD: ${{ secrets.BUILD_LOG_ZIP_PASSWORD }}
         run: |
@@ -172,11 +174,11 @@ jobs:
           exit $STATUS
 
       - name: Tests Run
+        id: test-run
         if: >
           steps.build_gate.outputs.should_skip != 'true' &&
           vars.ENABLE_TESTS == '1' &&
           vars.ENABLE_TESTS_RUN == '1'
-        id: test-run
         env:
           BUILD_LOG_ZIP_PASSWORD: ${{ secrets.BUILD_LOG_ZIP_PASSWORD }}
         run: |
