@@ -86,27 +86,11 @@ jobs:
         with:
           xcode-version: "26.4"
 
-      - name: Restore Cache (exact)
+      - name: Clear SwiftPM Cache
         if: steps.build_gate.outputs.should_skip != 'true'
-        id: xcode-cache-exact
-        uses: actions/cache/restore@v3
-        with:
-          path: |
-            ~/Library/Developer/Xcode/DerivedData
-            ~/Library/Caches/org.swift.swiftpm
-          key: xcode-build-cache-${{ github.ref_name }}-${{ github.sha }}
-
-      - name: Restore Cache (last)
-        if: >
-          steps.build_gate.outputs.should_skip != 'true' &&
-          steps.xcode-cache-exact.outputs.cache-hit != 'true'
-        id: xcode-cache-fallback
-        uses: actions/cache/restore@v3
-        with:
-          path: |
-            ~/Library/Developer/Xcode/DerivedData
-            ~/Library/Caches/org.swift.swiftpm
-          key: xcode-build-cache-${{ github.ref_name }}-
+        run: |
+          rm -rf ~/Library/Caches/org.swift.swiftpm
+          rm -rf ~/Library/Developer/Xcode/DerivedData
 
       - name: Clean
         if: steps.build_gate.outputs.should_skip != 'true' && contains(github.event.head_commit.message, '[--clean-build]')
