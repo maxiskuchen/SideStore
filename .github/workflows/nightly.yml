@@ -113,6 +113,18 @@ jobs:
         with:
           xcode-version: "26.3.0"
 
+      - name: Show Swift and SwiftPM versions
+        if: steps.build_gate.outputs.should_skip != 'true'
+        run: |
+          echo "=== Swift version ==="
+          swift --version
+
+          echo "=== SwiftPM version ==="
+          swift package --version
+
+          echo "=== Xcode version ==="
+          xcodebuild -version
+
       - name: Clear SwiftPM Cache
         if: steps.build_gate.outputs.should_skip != 'true'
         run: |
