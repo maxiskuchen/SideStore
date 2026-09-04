@@ -21,6 +21,7 @@ concurrency:
 jobs:
   build:
     runs-on: macos-26
+
     env:
       DEPLOY_KEY: ${{ secrets.CROSS_REPO_PUSH_KEY }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -38,7 +39,7 @@ jobs:
         run: |
           LAST_SUCCESSFUL_COMMIT=$(python3 scripts/ci/workflow.py last-successful-commit \
             "false" "${{ env.CHANNEL }}" || echo "")
-          echo "LAST_SUCCESSFUL_COMMIT=$LAST_SUCCESSFUL_COMMIT" | tee -a $GITHUB_ENV
+          echo "LAST_SUCCESSFUL_COMMIT=$LAST_SUCCESSFUL_COMMIT" | tee -a "$GITHUB_ENV"
 
       - name: Check for new changes (on schedule)
         id: check_changes
@@ -46,21 +47,26 @@ jobs:
         run: |
           NEW_COMMITS=$(python3 scripts/ci/workflow.py count-new-commits "$LAST_SUCCESSFUL_COMMIT")
           SHOULD_BUILD=$([ "${NEW_COMMITS:-0}" -ge 1 ] && echo true || echo false)
-          echo "should_build=$SHOULD_BUILD" >> $GITHUB_OUTPUT
-          echo "NEW_COMMITS=$NEW_COMMITS" | tee -a $GITHUB_ENV
+
+          echo "should_build=$SHOULD_BUILD" >> "$GITHUB_OUTPUT"
+          echo "NEW_COMMITS=$NEW_COMMITS" | tee -a "$GITHUB_ENV"
 
       - name: Should Skip Building (on schedule)
         id: build_gate
         run: |
           SHOULD_SKIP=$(
-            { [ "${{ github.event_name }}" = "schedule" ] && \
-              [ "${{ steps.check_changes.outputs.should_build }}" != "true" ]; \
+            {
+              [ "${{ github.event_name }}" = "schedule" ] &&
+              [ "${{ steps.check_changes.outputs.should_build }}" != "true" ];
             } && echo true || echo false
           )
-          echo "should_skip=$SHOULD_SKIP" >> $GITHUB_OUTPUT
 
-      - run: brew install ldid xcbeautify
+          echo "should_skip=$SHOULD_SKIP" >> "$GITHUB_OUTPUT"
+
+      - name: Install build tools
         if: steps.build_gate.outputs.should_skip != 'true'
+        run: |
+          brew install ldid xcbeautify
 
       - name: Setup Env
         if: steps.build_gate.outputs.should_skip != 'true'
@@ -70,15 +76,15 @@ jobs:
           SHORT_COMMIT=$(python3 scripts/ci/workflow.py commit-id)
 
           NORMALIZED_VERSION=$(python3 scripts/ci/workflow.py compute-normalized \
-              "$MARKETING_VERSION" \
-              "$BUILD_NUM" \
-              "$SHORT_COMMIT")
+            "$MARKETING_VERSION" \
+            "$BUILD_NUM" \
+            "$SHORT_COMMIT")
 
           python3 scripts/ci/workflow.py set-marketing-version "$NORMALIZED_VERSION"
 
-          echo "BUILD_NUM=$BUILD_NUM" | tee -a $GITHUB_ENV
-          echo "SHORT_COMMIT=$SHORT_COMMIT" | tee -a $GITHUB_ENV
-          echo "MARKETING_VERSION=$NORMALIZED_VERSION" | tee -a $GITHUB_ENV
+          echo "BUILD_NUM=$BUILD_NUM" | tee -a "$GITHUB_ENV"
+          echo "SHORT_COMMIT=$SHORT_COMMIT" | tee -a "$GITHUB_ENV"
+          echo "MARKETING_VERSION=$NORMALIZED_VERSION" | tee -a "$GITHUB_ENV"
 
       - name: Setup Xcode
         if: steps.build_gate.outputs.should_skip != 'true'
@@ -93,7 +99,9 @@ jobs:
           rm -rf ~/Library/Developer/Xcode/DerivedData
 
       - name: Clean
-        if: steps.build_gate.outputs.should_skip != 'true' && contains(github.event.head_commit.message, '[--clean-build]')
+        if: >
+          steps.build_gate.outputs.should_skip != 'true' &&
+          contains(github.event.head_commit.message, '[--clean-build]')
         run: |
           python3 scripts/ci/workflow.py clean
           python3 scripts/ci/workflow.py clean-derived-data
@@ -108,6 +116,12 @@ jobs:
           mkdir -p build/logs
           python3 scripts/ci/workflow.py boot-sim-async "iPhone 17 Pro"
 
+      - name: Clean Swift Package Artifacts
+        if: steps.build_gate.outputs.should_skip != 'true'
+        run: |
+          rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
+          rm -rf ~/Library/Developer/Xcode/DerivedData
+
       - name: Build
         if: steps.build_gate.outputs.should_skip != 'true'
         id: build
@@ -115,8 +129,17 @@ jobs:
           BUILD_LOG_ZIP_PASSWORD: ${{ secrets.BUILD_LOG_ZIP_PASSWORD }}
         run: |
           set -o pipefail
+
+          export HOME="$RUNNER_TEMP/isolated-home"
+
+          mkdir -p "$HOME/Library/Caches"
+          mkdir -p "$HOME/Library/Developer"
+
+          echo "Using isolated HOME: $HOME"
+
           make -B build 2>&1 | tee build-raw.log
           STATUS=${PIPESTATUS[0]}
+
           exit $STATUS
 
       - name: Tests Build
@@ -128,8 +151,11 @@ jobs:
         env:
           BUILD_LOG_ZIP_PASSWORD: ${{ secrets.BUILD_LOG_ZIP_PASSWORD }}
         run: |
-          python3 scripts/ci/workflow.py tests-build; STATUS=$?
+          python3 scripts/ci/workflow.py tests-build
+          STATUS=$?
+
           python3 scripts/ci/workflow.py encrypt-tests-build
+
           exit $STATUS
 
       - name: Tests Run
@@ -141,8 +167,11 @@ jobs:
         env:
           BUILD_LOG_ZIP_PASSWORD: ${{ secrets.BUILD_LOG_ZIP_PASSWORD }}
         run: |
-          python3 scripts/ci/workflow.py tests-run "iPhone 17 Pro"; STATUS=$?
+          python3 scripts/ci/workflow.py tests-run "iPhone 17 Pro"
+          STATUS=$?
+
           python3 scripts/ci/workflow.py encrypt-tests-run
+
           exit $STATUS
 
       - uses: actions/upload-artifact@v4
@@ -193,6 +222,7 @@ jobs:
         if: steps.build_gate.outputs.should_skip != 'true'
         run: |
           python3 scripts/ci/workflow.py dump-project-settings
+
           PRODUCT_NAME=$(python3 scripts/ci/workflow.py read-product-name)
           BUNDLE_ID=$(python3 scripts/ci/workflow.py read-bundle-id)
           IPA_NAME="$PRODUCT_NAME.ipa"
