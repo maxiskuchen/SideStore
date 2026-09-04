@@ -122,7 +122,7 @@ jobs:
           rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
           rm -rf ~/Library/Developer/Xcode/DerivedData
 
-            - name: Build
+      - name: Build
         if: steps.build_gate.outputs.should_skip != 'true'
         id: build
         env:
@@ -231,41 +231,4 @@ jobs:
           token: ${{ secrets.CROSS_REPO_PUSH_KEY }}
           path: "SideStore/apps-v2.json"
 
-      - name: Generate Metadata
-        if: steps.build_gate.outputs.should_skip != 'true'
-        run: |
-          python3 scripts/ci/workflow.py dump-project-settings
-
-          PRODUCT_NAME=$(python3 scripts/ci/workflow.py read-product-name)
-          BUNDLE_ID=$(python3 scripts/ci/workflow.py read-bundle-id)
-          IPA_NAME="$PRODUCT_NAME.ipa"
-
-          python3 scripts/ci/workflow.py generate-metadata \
-            "$CHANNEL" \
-            "$SHORT_COMMIT" \
-            "$MARKETING_VERSION" \
-            "$CHANNEL" \
-            "$BUNDLE_ID" \
-            "$IPA_NAME" \
-            "$LAST_SUCCESSFUL_COMMIT"
-
-      - name: Deploy
-        if: steps.build_gate.outputs.should_skip != 'true' && env.DEPLOY_KEY != ''
-        run: |
-          SOURCE_JSON="_includes/source.json"
-
-          python3 scripts/ci/workflow.py deploy \
-            SideStore/apps-v2.json \
-            "$SOURCE_JSON" \
-            "$CHANNEL" \
-            "$MARKETING_VERSION"
-
-      - name: Upload Release
-        if: steps.build_gate.outputs.should_skip != 'true'
-        run: |
-          python3 scripts/ci/workflow.py upload-release \
-            "$RELEASE_NAME" \
-            "$CHANNEL" \
-            "$GITHUB_SHA" \
-            "$GITHUB_REPOSITORY" \
-            "$UPSTREAM_CHANNEL"
+      -
