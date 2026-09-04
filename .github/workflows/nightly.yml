@@ -62,9 +62,6 @@ jobs:
       - run: brew install ldid xcbeautify
         if: steps.build_gate.outputs.should_skip != 'true'
 
-      # --------------------------------------------------
-      # runtime env setup
-      # --------------------------------------------------
       - name: Setup Env
         if: steps.build_gate.outputs.should_skip != 'true'
         run: |
@@ -111,9 +108,6 @@ jobs:
             ~/Library/Caches/org.swift.swiftpm
           key: xcode-build-cache-${{ github.ref_name }}-
 
-      # --------------------------------------------------
-      # build and test
-      # --------------------------------------------------
       - name: Clean
         if: steps.build_gate.outputs.should_skip != 'true' && contains(github.event.head_commit.message, '[--clean-build]')
         run: |
@@ -130,16 +124,16 @@ jobs:
           mkdir -p build/logs
           python3 scripts/ci/workflow.py boot-sim-async "iPhone 17 Pro"
 
-  - name: Build
-    if: steps.build_gate.outputs.should_skip != 'true'
-    id: build
-    env:
-      BUILD_LOG_ZIP_PASSWORD: ${{ secrets.BUILD_LOG_ZIP_PASSWORD }}
-    run: |
-      set -o pipefail
-      make -B build 2>&1 | tee build-raw.log
-      STATUS=${PIPESTATUS[0]}
-      exit $STATUS
+      - name: Build
+        if: steps.build_gate.outputs.should_skip != 'true'
+        id: build
+        env:
+          BUILD_LOG_ZIP_PASSWORD: ${{ secrets.BUILD_LOG_ZIP_PASSWORD }}
+        run: |
+          set -o pipefail
+          make -B build 2>&1 | tee build-raw.log
+          STATUS=${PIPESTATUS[0]}
+          exit $STATUS
 
       - name: Tests Build
         if: >
@@ -178,9 +172,6 @@ jobs:
           python3 scripts/ci/workflow.py encrypt-tests-run
           exit $STATUS
 
-      # --------------------------------------------------
-      # artifacts
-      # --------------------------------------------------
       - uses: actions/upload-artifact@v4
         if: steps.build_gate.outputs.should_skip != 'true'
         with:
@@ -210,6 +201,7 @@ jobs:
         with:
           name: SideStore-${{ env.MARKETING_VERSION }}.ipa
           path: SideStore.ipa
+
       - uses: actions/upload-artifact@v4
         if: steps.build_gate.outputs.should_skip != 'true'
         with:
@@ -251,11 +243,7 @@ jobs:
             "$SOURCE_JSON" \
             "$CHANNEL" \
             "$MARKETING_VERSION"
-      
 
-      # --------------------------------------------------
-      # upload release to GH
-      # --------------------------------------------------
       - name: Upload Release
         if: steps.build_gate.outputs.should_skip != 'true'
         run: |
