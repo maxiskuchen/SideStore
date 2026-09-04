@@ -70,7 +70,7 @@
       "location" : "https://github.com/maxiskuchen/RemotePairingKit.git",
       "state" : {
         "branch" : "sidestore-openssl-fix",
-        "revision" : "8f0ffff"
+        "revision" : "2f42879"
       }
     },
     {
