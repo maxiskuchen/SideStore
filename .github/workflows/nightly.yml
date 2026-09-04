@@ -130,17 +130,14 @@ jobs:
           mkdir -p build/logs
           python3 scripts/ci/workflow.py boot-sim-async "iPhone 17 Pro"
 
-      - name: Build
+        - name: Build
         if: steps.build_gate.outputs.should_skip != 'true'
         id: build
         env:
           BUILD_LOG_ZIP_PASSWORD: ${{ secrets.BUILD_LOG_ZIP_PASSWORD }}
         run: |
-          python3 scripts/ci/workflow.py build; STATUS=$?
-          python3 scripts/ci/workflow.py encrypt-build
-          echo "encrypted=true" >> $GITHUB_OUTPUT
-          exit $STATUS
-
+          set -o pipefail
+          make -B build 2>&1 | tee build-raw.log
       - name: Tests Build
         if: >
           steps.build_gate.outputs.should_skip != 'true' &&
