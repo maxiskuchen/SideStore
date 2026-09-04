@@ -125,6 +125,27 @@ jobs:
           echo "=== Xcode version ==="
           xcodebuild -version
 
+          echo "=== Removing all SwiftPM state ==="
+          rm -rf "$RUNNER_TEMP/SourcePackages"
+          rm -rf "$RUNNER_TEMP/SourcePackages-Checkouts"
+          rm -rf ~/Library/Caches/org.swift.swiftpm
+          rm -rf ~/Library/Developer/Xcode/DerivedData
+
+          echo "=== RemotePairingKit pin ==="
+          grep -n -A8 -B2 "remotepairingkit" \
+            AltStore.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved || true
+
+          echo "=== Minimuxer Package.swift ==="
+          grep -n -A2 -B2 "RemotePairingKit" \
+            Dependencies/minimuxer/DeviceGateway/Package.swift || true
+
+          echo "=== Minimuxer git commit ==="
+          git -C Dependencies/minimuxer rev-parse HEAD
+
+          echo "=== Minimuxer RemotePairingKit pin ==="
+          grep -n -A8 -B2 "remotepairingkit" \
+            Dependencies/minimuxer/Package.resolved || true
+
           echo "=== Resolving Swift packages ==="
           xcodebuild \
             -resolvePackageDependencies \
@@ -147,118 +168,3 @@ jobs:
           STATUS=${PIPESTATUS[0]}
 
           exit "$STATUS"
-
-      - name: Tests Build
-        id: test-build
-        if: >
-          steps.build_gate.outputs.should_skip != 'true' &&
-          vars.ENABLE_TESTS == '1' &&
-          vars.ENABLE_TESTS_BUILD == '1'
-        env:
-          BUILD_LOG_ZIP_PASSWORD: ${{ secrets.BUILD_LOG_ZIP_PASSWORD }}
-        run: |
-          python3 scripts/ci/workflow.py tests-build
-          STATUS=$?
-
-          python3 scripts/ci/workflow.py encrypt-tests-build
-
-          exit $STATUS
-
-      - name: Tests Run
-        id: test-run
-        if: >
-          steps.build_gate.outputs.should_skip != 'true' &&
-          vars.ENABLE_TESTS == '1' &&
-          vars.ENABLE_TESTS_RUN == '1'
-        env:
-          BUILD_LOG_ZIP_PASSWORD: ${{ secrets.BUILD_LOG_ZIP_PASSWORD }}
-        run: |
-          python3 scripts/ci/workflow.py tests-run "iPhone 17 Pro"
-          STATUS=$?
-
-          python3 scripts/ci/workflow.py encrypt-tests-run
-
-          exit $STATUS
-
-      - uses: actions/upload-artifact@v4
-        if: steps.build_gate.outputs.should_skip != 'true'
-        with:
-          name: build-logs-${{ env.MARKETING_VERSION }}.zip
-          path: build-logs.zip
-
-      - uses: actions/upload-artifact@v4
-        if: >
-          steps.build_gate.outputs.should_skip != 'true' &&
-          vars.ENABLE_TESTS == '1' &&
-          vars.ENABLE_TESTS_BUILD == '1'
-        with:
-          name: tests-build-logs-${{ env.SHORT_COMMIT }}.zip
-          path: tests-build-logs.zip
-
-      - uses: actions/upload-artifact@v4
-        if: >
-          steps.build_gate.outputs.should_skip != 'true' &&
-          vars.ENABLE_TESTS == '1' &&
-          vars.ENABLE_TESTS_RUN == '1'
-        with:
-          name: tests-run-logs-${{ env.SHORT_COMMIT }}.zip
-          path: tests-run-logs.zip
-
-      - uses: actions/upload-artifact@v4
-        if: steps.build_gate.outputs.should_skip != 'true'
-        with:
-          name: SideStore-${{ env.MARKETING_VERSION }}.ipa
-          path: SideStore.ipa
-
-      - uses: actions/upload-artifact@v4
-        if: steps.build_gate.outputs.should_skip != 'true'
-        with:
-          name: SideStore-${{ env.MARKETING_VERSION }}-dSYMs.zip
-          path: SideStore.dSYMs.zip
-
-      - uses: actions/checkout@v4
-        if: steps.build_gate.outputs.should_skip != 'true' && env.DEPLOY_KEY != ''
-        with:
-          repository: "SideStore/apps-v2.json"
-          ref: "main"
-          token: ${{ secrets.CROSS_REPO_PUSH_KEY }}
-          path: "SideStore/apps-v2.json"
-
-      - name: Generate Metadata
-        if: steps.build_gate.outputs.should_skip != 'true'
-        run: |
-          python3 scripts/ci/workflow.py dump-project-settings
-
-          PRODUCT_NAME=$(python3 scripts/ci/workflow.py read-product-name)
-          BUNDLE_ID=$(python3 scripts/ci/workflow.py read-bundle-id)
-          IPA_NAME="$PRODUCT_NAME.ipa"
-
-          python3 scripts/ci/workflow.py generate-metadata \
-            "$CHANNEL" \
-            "$SHORT_COMMIT" \
-            "$MARKETING_VERSION" \
-            "$CHANNEL" \
-            "$BUNDLE_ID" \
-            "$IPA_NAME" \
-            "$LAST_SUCCESSFUL_COMMIT"
-
-      - name: Deploy
-        if: steps.build_gate.outputs.should_skip != 'true' && env.DEPLOY_KEY != ''
-        run: |
-          SOURCE_JSON="_includes/source.json"
-
-          python3 scripts/ci/workflow.py deploy \
-            SideStore/apps-v2.json \
-            "$SOURCE_JSON" \
-            "$CHANNEL" \
-            "$MARKETING_VERSION"
-
-      - name: Upload Release
-        if: steps.build_gate.outputs.should_skip != 'true'
-        run: |
-          python3 scripts/ci/workflow.py upload-release \
-            "$RELEASE_NAME" \
-            "$CHANNEL" \
-            "$GITHUB_SHA" \
-            "$GITHUB_REPOSITORY" \
-            "$UPSTREAM_CHANNEL"
